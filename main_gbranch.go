@@ -75,7 +75,7 @@ func parseAndPrintLine(line string, maxLength int) {
 		commitMsg := adjustSpace(matches[5]) // Adjust spaces in commit message
 
 		paddedBranch := branch + strings.Repeat(" ", maxLength-len(branch)+1)
-		fmt.Printf("%s%s: %s | %s\n", symbol, paddedBranch, commitMsg, remote)
+		fmt.Printf("%s %s: %s | %s\n", symbol, paddedBranch, commitMsg, remote)
 	}
 }
 
