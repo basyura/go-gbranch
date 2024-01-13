@@ -15,7 +15,7 @@ import (
 const commitMsgLength = 70
 
 // Define the special symbol to replace '+'
-const specialSymbol = "⏰"
+const specialSymbol = "⭕"
 
 type Branch struct {
 	IsCurrent bool
