@@ -11,13 +11,18 @@ import (
 	"github.com/fatih/color"
 )
 
-const commitMsgLength = 70 // Define the length of the commit message as a constant
-const specialSymbol = "⏰"  // Define the special symbol to replace '+'
+// Define the length of the commit message as a constant
+const commitMsgLength = 70
+
+// Define the special symbol to replace '+'
+const specialSymbol = "⏰"
 
 type Branch struct {
-	Symbol  string
-	Name    string
-	Message string
+	IsCurrent bool
+	Symbol    string
+	Name      string
+	Remote    string
+	Message   string
 }
 
 func main() {
@@ -29,27 +34,22 @@ func main() {
 		return
 	}
 
-	// Find the longest branch name for alignment
-	var maxLength int
-	scanner := bufio.NewScanner(strings.NewReader(string(output)))
-	for scanner.Scan() {
-		line := scanner.Text()
-		branchLength := len(getBranchName(line))
-		if branchLength > maxLength {
-			maxLength = branchLength
-		}
-	}
-
 	// Reset scanner to start
-	scanner = bufio.NewScanner(strings.NewReader(string(output)))
+	scanner := bufio.NewScanner(strings.NewReader(string(output)))
+	branches := []*Branch{}
 	for scanner.Scan() {
 		line := scanner.Text()
-		parseAndPrintLine(line, maxLength)
+		branch := parseAndPrintLine(line)
+		branches = append(branches, branch)
 	}
 
 	if err := scanner.Err(); err != nil {
 		fmt.Println("Error reading git output:", err)
+		return
 	}
+
+	// print to console
+	print(branches)
 }
 
 func getBranchName(line string) string {
@@ -58,66 +58,62 @@ func getBranchName(line string) string {
 	if matches != nil {
 		return matches[2]
 	}
+
 	return ""
 }
 
-func parseAndPrintLine(line string, maxLength int) {
+func parseAndPrintLine(line string) *Branch {
 	// Improved regular expression to match the required parts of each line accurately
 	re := regexp.MustCompile(`^(\s*[\+\*]?\s*)([\w/+\-\.]+)\s+([a-f0-9]+)\s+(\[.*?\])?\s*(.*)$`)
 	matches := re.FindStringSubmatch(line)
 	if matches == nil {
-		return
+		return nil
 	}
 
-	isCurrent := false
+	// replace symbol
 	symbol := matches[1]
+	isCurrent := false
 	if symbol == "* " {
-		symbol = specialSymbol // Replace '+' with the special symbol and add a space
+		symbol = specialSymbol
 		isCurrent = true
 	} else if symbol == "" {
-		symbol = "  " // Two spaces for missing symbol
+		symbol = "  "
 	}
 
 	branch := matches[2]
 	remote := ""
+	// Extract remote branch name from the square brackets
 	if matches[4] != "" {
-		// Extract remote branch name from the square brackets
 		remoteBracketContents := matches[4]
 		remoteParts := strings.SplitN(remoteBracketContents[1:len(remoteBracketContents)-1], ":", 2)
 		remote = strings.TrimSpace(remoteParts[0])
 	}
-	msg := adjustSpace(matches[5]) // Adjust spaces in commit message
 
-	padding := branch + strings.Repeat(" ", maxLength-len(branch)+1)
+	// Adjust spaces in commit message
+	//msg := adjustSpace(matches[5])
+	msg := matches[5]
 
-	out := fmt.Sprintf("%s %s: %s | %s\n", symbol, padding, msg, remote)
-	if isCurrent {
-		// red := color.New(color.BgRed)
-		// red.Add(color.FgWhite)
-		red := color.New(color.FgRed)
-		out = red.Sprintf(out)
-		// out = color.RedString(out)
+	return &Branch{
+		IsCurrent: isCurrent,
+		Symbol:    symbol,
+		Name:      branch,
+		Remote:    remote,
+		Message:   msg,
 	}
-
-	fmt.Print(out)
 }
 
 // adjustSpace adjusts the string to have an effective length of 70 spaces, considering ASCII and non-ASCII characters
-func adjustSpace(s string) string {
-	effectiveLength := 0
-	runes := []rune(s)
-	for _, r := range runes {
-		if unicode.IsPrint(r) && r < 128 {
-			effectiveLength += 1 // ASCII characters count as 1
-		} else {
-			effectiveLength += 2 // Non-ASCII characters count as 2
-		}
+func adjustSpace(s string, maxLen int) string {
+	length := strLen(s)
+	if maxLen > commitMsgLength {
+		maxLen = commitMsgLength
 	}
 
-	if effectiveLength > commitMsgLength {
+	if length > maxLen {
+		runes := []rune(s)
 		adjustedLength := 0
-		for i, r := range runes {
-			if adjustedLength >= commitMsgLength {
+		for i, r := range []rune(s) {
+			if adjustedLength >= maxLen {
 				return string(runes[:i])
 			}
 			if unicode.IsPrint(r) && r < 128 {
@@ -127,5 +123,49 @@ func adjustSpace(s string) string {
 			}
 		}
 	}
-	return s + strings.Repeat(" ", commitMsgLength-effectiveLength)
+	return s + strings.Repeat(" ", maxLen-length)
+}
+
+func print(branches []*Branch) {
+	max_branch_len := 0
+	max_commit_len := 0
+	for _, b := range branches {
+		if len(b.Name) > max_branch_len {
+			max_branch_len = len(b.Name)
+		}
+		if len(b.Message) > max_commit_len {
+			max_commit_len = strLen(b.Message)
+		}
+	}
+
+	for _, b := range branches {
+		name := b.Name
+		name += strings.Repeat(" ", max_branch_len-len(name)+1)
+		msg := adjustSpace(b.Message, max_commit_len)
+		out := fmt.Sprintf("%s %s: %s %s\n", b.Symbol, name, msg, b.Remote)
+
+		if b.IsCurrent {
+			// red := color.New(color.BgRed)
+			// red.Add(color.FgWhite)
+			red := color.New(color.FgRed)
+			out = red.Sprintf(out)
+			// out = color.RedString(out)
+		}
+
+		fmt.Print(out)
+	}
+}
+
+func strLen(s string) int {
+	length := 0
+	runes := []rune(s)
+	for _, r := range runes {
+		if unicode.IsPrint(r) && r < 128 {
+			length += 1 // ASCII characters count as 1
+		} else {
+			length += 2 // Non-ASCII characters count as 2
+		}
+	}
+
+	return length
 }
