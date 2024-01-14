@@ -27,6 +27,7 @@ type Branch struct {
 
 func main() {
 	// Execute the git command
+	fmt.Println("")
 	cmd := exec.Command("git", "branch", "-vv")
 	output, err := cmd.Output()
 	if err != nil {
