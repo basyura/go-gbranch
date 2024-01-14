@@ -154,7 +154,7 @@ func print(branches []*Branch) {
 		name := b.Name
 		name += strings.Repeat(" ", max_branch_len-len(name)+1)
 		msg := adjustSpace(b.Message, max_commit_len)
-		out := fmt.Sprintf("%s %s: %s %s\n", b.Symbol, name, msg, b.Remote)
+		out := fmt.Sprintf("%s %s %s %s\n", b.Symbol, name, msg, b.Remote)
 
 		if b.IsCurrent {
 			// red := color.New(color.BgRed)
