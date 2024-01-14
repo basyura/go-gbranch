@@ -139,6 +139,17 @@ func print(branches []*Branch) {
 		}
 	}
 
+	// IsCurrent が true の Branch を見つけて先頭に移動
+	for i, branch := range branches {
+		// 要素を先頭に移動
+		if branch.IsCurrent {
+			branches = append(branches[:i], branches[i+1:]...)
+			branches = append([]*Branch{branch}, branches...)
+			break
+		}
+	}
+
+	// 順番に出力
 	for _, b := range branches {
 		name := b.Name
 		name += strings.Repeat(" ", max_branch_len-len(name)+1)
