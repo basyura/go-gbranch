@@ -15,7 +15,7 @@ import (
 const commitMsgLength = 70
 
 // Define the special symbol to replace '+'
-const specialSymbol = "⭕"
+const specialSymbol = "⚡"
 
 type Branch struct {
 	IsCurrent bool
@@ -159,7 +159,7 @@ func print(branches []*Branch) {
 		if b.IsCurrent {
 			// red := color.New(color.BgRed)
 			// red.Add(color.FgWhite)
-			red := color.New(color.FgRed)
+			red := color.New(color.FgYellow)
 			out = red.Sprintf(out)
 			// out = color.RedString(out)
 		}
