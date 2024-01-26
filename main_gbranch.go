@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -26,8 +28,13 @@ type Branch struct {
 }
 
 func main() {
-	// Execute the git command
 	fmt.Println("")
+	// 引数が有る場合は git branch を引数付きで実行したいと判断
+	if len(os.Args) != 1 {
+		execNormal(os.Args)
+		return
+	}
+	// Execute the git command
 	cmd := exec.Command("git", "branch", "-vv")
 	output, err := cmd.Output()
 	if err != nil {
@@ -51,6 +58,27 @@ func main() {
 
 	// print to console
 	print(branches)
+}
+
+func execNormal(osArgs []string) {
+	args := osArgs
+	args[0] = "branch"
+	// コマンド生成
+	cmd := exec.Command("git", os.Args...)
+	// 出力先設定
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	// 実行
+	err := cmd.Run()
+	// エラー時
+	if err != nil {
+		fmt.Println(stderr.String())
+		return
+	}
+	// 通常時
+	fmt.Println(stdout.String())
 }
 
 func getBranchName(line string) string {
@@ -140,14 +168,16 @@ func print(branches []*Branch) {
 	}
 
 	// IsCurrent が true の Branch を見つけて先頭に移動
-	for i, branch := range branches {
-		// 要素を先頭に移動
-		if branch.IsCurrent {
-			branches = append(branches[:i], branches[i+1:]...)
-			branches = append([]*Branch{branch}, branches...)
-			break
+	/*
+		for i, branch := range branches {
+			// 要素を先頭に移動
+			if branch.IsCurrent {
+				branches = append(branches[:i], branches[i+1:]...)
+				branches = append([]*Branch{branch}, branches...)
+				break
+			}
 		}
-	}
+	*/
 
 	// 順番に出力
 	for _, b := range branches {
