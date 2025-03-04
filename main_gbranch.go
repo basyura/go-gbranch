@@ -17,7 +17,7 @@ import (
 const commitMsgLength = 70
 
 // Define the special symbol to replace '+'
-const specialSymbol = "⚡"
+const specialSymbol = "⭕️"
 
 type Branch struct {
 	IsCurrent bool
@@ -103,7 +103,10 @@ func parseAndPrintLine(line string) *Branch {
 	symbol := matches[1]
 	isCurrent := false
 	if symbol == "* " {
-		symbol = specialSymbol
+		symbol = os.Getenv("GBRANCH_SYMBOL")
+		if symbol == "" {
+			symbol = specialSymbol
+		}
 		isCurrent = true
 	} else if symbol == "" {
 		symbol = "  "
@@ -187,15 +190,39 @@ func print(branches []*Branch) {
 		out := fmt.Sprintf("%s %s %s - %s\n", b.Symbol, name, msg, b.Remote)
 
 		if b.IsCurrent {
-			// red := color.New(color.BgRed)
-			// red.Add(color.FgWhite)
-			red := color.New(color.FgYellow)
-			out = red.Sprintf(out)
-			// out = color.RedString(out)
+			fg := getFg()
+			c := color.New(fg)
+			// c.Add(color.BgWhite)
+			out = c.Sprintf(out)
 		}
 
 		fmt.Print(out)
 	}
+}
+
+func getFg() color.Attribute {
+
+	s := os.Getenv("GBRANCH_FG")
+	switch s {
+	case "red":
+		return color.FgRed
+	case "hired":
+		return color.FgHiRed
+	case "blue":
+		return color.FgBlue
+	case "hiblue":
+		return color.FgHiBlue
+	case "yellow":
+		return color.FgYellow
+	case "hiyellow":
+		return color.FgHiYellow
+	case "black":
+		return color.FgBlack
+	case "hiblack":
+		return color.FgHiBlack
+	}
+
+	return color.FgRed
 }
 
 func strLen(s string) int {
