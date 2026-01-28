@@ -102,18 +102,16 @@ func parseAndPrintLine(line string) *Branch {
 	}
 
 	// replace symbol
-	symbol := matches[1]
-	isCurrent := false
-	if symbol == "* " {
-		symbol = os.Getenv("GBRANCH_SYMBOL") + " "
+	symbolToken := matches[1]
+	isCurrent := strings.Contains(symbolToken, "*")
+	symbol := ""
+	if isCurrent {
+		symbol = os.Getenv("GBRANCH_SYMBOL")
 		if symbol == "" {
 			symbol = specialSymbol
 		}
-		isCurrent = true
-	} else if symbol == "" {
-		symbol = "  "
-	} else {
-		symbol = symbol + " "
+	} else if strings.Contains(symbolToken, "+") {
+		symbol = "+"
 	}
 
 	branch := matches[2]
@@ -163,14 +161,20 @@ func adjustSpace(s string, maxLen int) string {
 }
 
 func print(branches []*Branch) {
-	max_branch_len := 0
+	max_symbol_width := 0
+	max_branch_width := 0
 	max_commit_len := 0
 	for _, b := range branches {
-		if len(b.Name) > max_branch_len {
-			max_branch_len = len(b.Name)
+		symbolWidth := symbolDisplayWidth(b)
+		if symbolWidth > max_symbol_width {
+			max_symbol_width = symbolWidth
 		}
-		if len(b.Message) > max_commit_len {
-			max_commit_len = strLen(b.Message)
+		if strLen(b.Name) > max_branch_width {
+			max_branch_width = strLen(b.Name)
+		}
+		msgWidth := strLen(b.Message)
+		if msgWidth > max_commit_len {
+			max_commit_len = msgWidth
 		}
 	}
 
@@ -189,13 +193,17 @@ func print(branches []*Branch) {
 	termWidth := getTerminalWidth()
 	// 順番に出力
 	for _, b := range branches {
-		name := b.Name
-		name += strings.Repeat(" ", max_branch_len-len(name)+1)
+		symbol := b.Symbol
+		symbolWidth := symbolDisplayWidth(b)
+		if symbolWidth < max_symbol_width {
+			symbol += strings.Repeat(" ", max_symbol_width-symbolWidth)
+		}
+		name := padRightByWidth(b.Name, max_branch_width) + " "
 		msg := adjustSpace(b.Message, max_commit_len)
 		remote := b.Remote
 
 		if termWidth > 0 {
-			outLine := fmt.Sprintf("%s %s %s - %s", b.Symbol, name, msg, remote)
+			outLine := fmt.Sprintf("%s %s %s - %s", symbol, name, msg, remote)
 			outWidth := strLen(outLine)
 			if outWidth > termWidth {
 				excess := outWidth - termWidth
@@ -207,7 +215,7 @@ func print(branches []*Branch) {
 					}
 					remote = chopRightByWidth(remote, newRemoteWidth)
 				}
-				outLine = fmt.Sprintf("%s %s %s - %s", b.Symbol, name, msg, remote)
+				outLine = fmt.Sprintf("%s %s %s - %s", symbol, name, msg, remote)
 				outWidth = strLen(outLine)
 				if outWidth > termWidth {
 					excess = outWidth - termWidth
@@ -221,7 +229,7 @@ func print(branches []*Branch) {
 			}
 		}
 
-		out := fmt.Sprintf("%s %s %s - %s\n", b.Symbol, name, msg, remote)
+		out := fmt.Sprintf("%s %s %s - %s\n", symbol, name, msg, remote)
 
 		if b.IsCurrent {
 			fg := getFg()
@@ -279,6 +287,10 @@ func strLen(s string) int {
 	length := 0
 	runes := []rune(s)
 	for _, r := range runes {
+		if unicode.Is(unicode.Mn, r) || unicode.Is(unicode.Cf, r) {
+			// Skip zero-width combining/format characters (e.g. variation selectors).
+			continue
+		}
 		if unicode.IsPrint(r) && r < 128 {
 			length += 1 // ASCII characters count as 1
 		} else {
@@ -289,6 +301,29 @@ func strLen(s string) int {
 	return length
 }
 
+func padRightByWidth(s string, width int) string {
+	if width <= 0 {
+		return s
+	}
+	currentWidth := strLen(s)
+	if currentWidth >= width {
+		return s
+	}
+
+	return s + strings.Repeat(" ", width-currentWidth)
+}
+
+func symbolDisplayWidth(b *Branch) int {
+	if b.IsCurrent {
+		// specialSymbol / GBRANCH_SYMBOL are treated as width 2
+		if b.Symbol == "" {
+			return 0
+		}
+		return 2
+	}
+	return strLen(b.Symbol)
+}
+
 func chopRightByWidth(s string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return ""
@@ -296,6 +331,9 @@ func chopRightByWidth(s string, maxWidth int) string {
 	width := 0
 	runes := []rune(s)
 	for i, r := range runes {
+		if unicode.Is(unicode.Mn, r) || unicode.Is(unicode.Cf, r) {
+			continue
+		}
 		if unicode.IsPrint(r) && r < 128 {
 			width += 1
 		} else {
