@@ -7,10 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/fatih/color"
+	"golang.org/x/term"
 )
 
 // Define the length of the commit message as a constant
@@ -184,12 +186,42 @@ func print(branches []*Branch) {
 		}
 	*/
 
+	termWidth := getTerminalWidth()
 	// 順番に出力
 	for _, b := range branches {
 		name := b.Name
 		name += strings.Repeat(" ", max_branch_len-len(name)+1)
 		msg := adjustSpace(b.Message, max_commit_len)
-		out := fmt.Sprintf("%s %s %s - %s\n", b.Symbol, name, msg, b.Remote)
+		remote := b.Remote
+
+		if termWidth > 0 {
+			outLine := fmt.Sprintf("%s %s %s - %s", b.Symbol, name, msg, remote)
+			outWidth := strLen(outLine)
+			if outWidth > termWidth {
+				excess := outWidth - termWidth
+				remoteWidth := strLen(remote)
+				if remoteWidth > 0 {
+					newRemoteWidth := remoteWidth - excess
+					if newRemoteWidth < 0 {
+						newRemoteWidth = 0
+					}
+					remote = chopRightByWidth(remote, newRemoteWidth)
+				}
+				outLine = fmt.Sprintf("%s %s %s - %s", b.Symbol, name, msg, remote)
+				outWidth = strLen(outLine)
+				if outWidth > termWidth {
+					excess = outWidth - termWidth
+					msgWidth := strLen(msg)
+					newMsgWidth := msgWidth - excess
+					if newMsgWidth < 0 {
+						newMsgWidth = 0
+					}
+					msg = chopRightByWidth(msg, newMsgWidth)
+				}
+			}
+		}
+
+		out := fmt.Sprintf("%s %s %s - %s\n", b.Symbol, name, msg, remote)
 
 		if b.IsCurrent {
 			fg := getFg()
@@ -227,6 +259,22 @@ func getFg() color.Attribute {
 	return color.FgRed
 }
 
+func getTerminalWidth() int {
+	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
+		return w
+	}
+	s := os.Getenv("COLUMNS")
+	if s == "" {
+		return 0
+	}
+	width, err := strconv.Atoi(s)
+	if err != nil || width <= 0 {
+		return 0
+	}
+
+	return width
+}
+
 func strLen(s string) int {
 	length := 0
 	runes := []rune(s)
@@ -239,4 +287,24 @@ func strLen(s string) int {
 	}
 
 	return length
+}
+
+func chopRightByWidth(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	width := 0
+	runes := []rune(s)
+	for i, r := range runes {
+		if unicode.IsPrint(r) && r < 128 {
+			width += 1
+		} else {
+			width += 2
+		}
+		if width > maxWidth {
+			return string(runes[:i])
+		}
+	}
+
+	return s
 }
