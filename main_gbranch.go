@@ -103,13 +103,15 @@ func parseAndPrintLine(line string) *Branch {
 	symbol := matches[1]
 	isCurrent := false
 	if symbol == "* " {
-		symbol = os.Getenv("GBRANCH_SYMBOL")
+		symbol = os.Getenv("GBRANCH_SYMBOL") + " "
 		if symbol == "" {
 			symbol = specialSymbol
 		}
 		isCurrent = true
 	} else if symbol == "" {
 		symbol = "  "
+	} else {
+		symbol = symbol + " "
 	}
 
 	branch := matches[2]
