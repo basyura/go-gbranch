@@ -143,21 +143,13 @@ func adjustSpace(s string, maxLen int) string {
 		maxLen = commitMsgLength
 	}
 
-	if length > maxLen {
-		runes := []rune(s)
-		adjustedLength := 0
-		for i, r := range []rune(s) {
-			if adjustedLength >= maxLen {
-				return string(runes[:i])
-			}
-			if unicode.IsPrint(r) && r < 128 {
-				adjustedLength += 1
-			} else {
-				adjustedLength += 2
-			}
-		}
+	if maxLen <= 0 {
+		return ""
 	}
-	return s + strings.Repeat(" ", maxLen-length)
+	if length >= maxLen {
+		return chopRightByWidth(s, maxLen)
+	}
+	return padRightByWidth(s, maxLen)
 }
 
 func print(branches []*Branch) {
@@ -235,7 +227,7 @@ func print(branches []*Branch) {
 			fg := getFg()
 			c := color.New(fg)
 			// c.Add(color.BgWhite)
-			out = c.Sprintf(out)
+			out = c.Sprint(out)
 		}
 
 		fmt.Print(out)
