@@ -182,7 +182,11 @@ func print(branches []*Branch) {
 		}
 	*/
 
-	termWidth := getTerminalWidth()
+	rawTermWidth := getTerminalWidth()
+	termWidth := rawTermWidth - 1
+	if termWidth < 0 {
+		termWidth = 0
+	}
 	// 順番に出力
 	for _, b := range branches {
 		symbol := b.Symbol
