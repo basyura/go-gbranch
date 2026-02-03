@@ -27,6 +27,7 @@ type Branch struct {
 	Name      string
 	Remote    string
 	Message   string
+	Worktree  string
 }
 
 func main() {
@@ -95,7 +96,7 @@ func getBranchName(line string) string {
 
 func parseAndPrintLine(line string) *Branch {
 	// Improved regular expression to match the required parts of each line accurately
-	re := regexp.MustCompile(`^(\s*[\+\*]?\s*)([\w/+\-\.]+)\s+([a-f0-9]+)\s+(\[.*?\])?\s*(.*)$`)
+	re := regexp.MustCompile(`^(\s*[\+\*]?\s*)([\w/+\-\.]+)\s+([a-f0-9]+)(?:\s+\(([^)]*)\))?\s+(\[.*?\])?\s*(.*)$`)
 	matches := re.FindStringSubmatch(line)
 	if matches == nil {
 		return nil
@@ -117,15 +118,16 @@ func parseAndPrintLine(line string) *Branch {
 	branch := matches[2]
 	remote := ""
 	// Extract remote branch name from the square brackets
-	if matches[4] != "" {
-		remoteBracketContents := matches[4]
+	if matches[5] != "" {
+		remoteBracketContents := matches[5]
 		remoteParts := strings.SplitN(remoteBracketContents[1:len(remoteBracketContents)-1], ":", 2)
 		remote = strings.TrimSpace(remoteParts[0])
 	}
 
 	// Adjust spaces in commit message
 	//msg := adjustSpace(matches[5])
-	msg := matches[5]
+	msg := matches[6]
+	worktree := lastPathElement(matches[4])
 
 	return &Branch{
 		IsCurrent: isCurrent,
@@ -133,6 +135,7 @@ func parseAndPrintLine(line string) *Branch {
 		Name:      branch,
 		Remote:    remote,
 		Message:   msg,
+		Worktree:  worktree,
 	}
 }
 
@@ -161,8 +164,9 @@ func print(branches []*Branch) {
 		if symbolWidth > max_symbol_width {
 			max_symbol_width = symbolWidth
 		}
-		if strLen(b.Name) > max_branch_width {
-			max_branch_width = strLen(b.Name)
+		branchName := buildBranchName(b)
+		if strLen(branchName) > max_branch_width {
+			max_branch_width = strLen(branchName)
 		}
 		msgWidth := strLen(b.Message)
 		if msgWidth > max_commit_len {
@@ -194,7 +198,7 @@ func print(branches []*Branch) {
 		if symbolWidth < max_symbol_width {
 			symbol += strings.Repeat(" ", max_symbol_width-symbolWidth)
 		}
-		name := padRightByWidth(b.Name, max_branch_width) + " "
+		name := padRightByWidth(buildBranchName(b), max_branch_width) + " "
 		msg := adjustSpace(b.Message, max_commit_len)
 		remote := b.Remote
 
@@ -236,6 +240,26 @@ func print(branches []*Branch) {
 
 		fmt.Print(out)
 	}
+}
+
+func buildBranchName(b *Branch) string {
+	if b.Worktree == "" {
+		return b.Name
+	}
+	return fmt.Sprintf("%s (%s)", b.Name, b.Worktree)
+}
+
+func lastPathElement(path string) string {
+	if path == "" {
+		return ""
+	}
+	parts := strings.FieldsFunc(path, func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[len(parts)-1]
 }
 
 func getFg() color.Attribute {
